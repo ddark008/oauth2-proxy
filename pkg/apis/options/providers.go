@@ -45,6 +45,8 @@ type Provider struct {
 	OIDCConfig OIDCOptions `json:"oidcConfig,omitempty"`
 	// LoginGovConfig holds all configurations for LoginGov provider.
 	LoginGovConfig LoginGovOptions `json:"loginGovConfig,omitempty"`
+	// YandexConfig holds all configurations for Yandex provider.
+	YandexConfig YandexOptions `json:"yandexConfig,omitempty"`
 
 	// ID should be a unique identifier for the provider.
 	// This value is required for all providers.
@@ -128,6 +130,9 @@ const (
 
 	// OIDCProvider is the provider type for OIDC
 	OIDCProvider ProviderType = "oidc"
+
+	// YandexProvider is the provider type for Yandex
+	YandexProvider ProviderType = "yandex"
 )
 
 type KeycloakOptions struct {
@@ -237,6 +242,16 @@ type LoginGovOptions struct {
 	JWTKeyFile string `json:"jwtKeyFile,omitempty"`
 	// PubJWKURL is the JWK pubkey access endpoint
 	PubJWKURL string `json:"pubjwkURL,omitempty"`
+}
+
+type YandexOptions struct {
+	DeviceId      string `json:"deviceId,omitempty"`
+	DeviceName    string `json:"deviceName,omitempty"`
+	LoginHint     string `json:"loginHint,omitempty"`
+	OptionalScope string `json:"optionalScope,omitempty"`
+	ForceConfirm  bool   `json:"forceConfirm,omitempty"`
+	State         string `json:"state,omitempty"`
+	Display       string `json:"display,omitempty"`
 }
 
 func providerDefaults() Providers {
