@@ -250,8 +250,6 @@ type YandexOptions struct {
 	LoginHint     string `json:"loginHint,omitempty"`
 	OptionalScope string `json:"optionalScope,omitempty"`
 	ForceConfirm  bool   `json:"forceConfirm,omitempty"`
-	State         string `json:"state,omitempty"`
-	Display       string `json:"display,omitempty"`
 }
 
 func providerDefaults() Providers {
