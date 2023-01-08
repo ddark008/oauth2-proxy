@@ -153,7 +153,7 @@ func makeYandexLoginURL(p *ProviderData, redirectURI, state string, extraParams 
 		params.Add("scope", p.Scope)
 	}
 	params.Set("client_id", p.ClientID)
-	params.Set("response_type", "token")
+	params.Set("response_type", "code")
 	params.Add("state", state)
 	for n, p := range extraParams {
 		for _, v := range p {
