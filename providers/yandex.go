@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
 
 	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/apis/options"
 	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/apis/sessions"
@@ -18,8 +19,7 @@ type YandexProvider struct {
 	deviceName    string
 	loginHint     string
 	optionalScope string
-	forceConfirm  string
-	display       string
+	forceConfirm  bool
 }
 
 var _ Provider = (*YandexProvider)(nil)
@@ -86,6 +86,18 @@ func NewYandexProvider(p *ProviderData, opts options.YandexOptions) (*YandexProv
 }
 
 func (p *YandexProvider) configure(opts options.YandexOptions) error {
+	match, _ := regexp.MatchString("[ -~]{6,50}", opts.DeviceId)
+	if opts.DeviceId != "" && !match {
+		return fmt.Errorf("option Device ID must contains only ANSII (32-128 code) with length between 6 and 50: %v", opts.DeviceId)
+	}
+	p.deviceId = opts.DeviceId
+	if len(opts.DeviceName) > 100 {
+		return fmt.Errorf("length of Device Name must be less 100: %v", opts.DeviceName)
+	}
+	p.deviceName = opts.DeviceName
+	p.loginHint = opts.LoginHint
+	p.optionalScope = opts.OptionalScope
+	p.forceConfirm = opts.ForceConfirm
 	return nil
 }
 
