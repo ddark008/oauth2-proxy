@@ -153,25 +153,26 @@ func makeYandexHeader(accessToken string) http.Header {
 // codeChallenge and codeChallengeMethod are the PKCE challenge and method to append to the URL params.
 // they will be empty strings if no code challenge should be presented
 func (p *YandexProvider) GetLoginURL(redirectURI, state, _ string, extraParams url.Values) string {
-	loginURL := makeYandexLoginURL(p.ProviderData, redirectURI, state, extraParams)
+	if p.deviceId != "" {
+		extraParams.Add("device_id", p.deviceId)
+	}
+	if p.deviceName != "" {
+		extraParams.Add("device_name", p.deviceName)
+	}
+	if p.loginHint != "" {
+		extraParams.Add("login_hint", p.loginHint)
+	}
+	if p.optionalScope != "" {
+		extraParams.Add("optional_scope", p.optionalScope)
+	}
+	if p.forceConfirm {
+		extraParams.Add("force_confirm", "yes")
+	}
+	loginURL := makeLoginURL(p.ProviderData, redirectURI, state, extraParams)
+	if p.Scope == "" {
+		q := loginURL.Query()
+		q.Del("scope")
+		loginURL.RawQuery = q.Encode()
+	}
 	return loginURL.String()
-}
-
-func makeYandexLoginURL(p *ProviderData, redirectURI, state string, extraParams url.Values) url.URL {
-	a := *p.LoginURL
-	params, _ := url.ParseQuery(a.RawQuery)
-	params.Set("redirect_uri", redirectURI)
-	if p.Scope != "" {
-		params.Add("scope", p.Scope)
-	}
-	params.Set("client_id", p.ClientID)
-	params.Set("response_type", "code")
-	params.Add("state", state)
-	for n, p := range extraParams {
-		for _, v := range p {
-			params.Add(n, v)
-		}
-	}
-	a.RawQuery = params.Encode()
-	return a
 }
