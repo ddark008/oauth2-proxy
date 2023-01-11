@@ -1,11 +1,13 @@
 package providers
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net/http"
 	"net/url"
 	"regexp"
+	"time"
 
 	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/apis/options"
 	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/apis/sessions"
@@ -122,19 +124,23 @@ func (p *YandexProvider) EnrichSession(ctx context.Context, s *sessions.SessionS
 
 	login, err := json.Get("login").String()
 	if err != nil {
-		return fmt.Errorf("unable to extract email from userinfo endpoint: %v", err)
+		return fmt.Errorf("unable to extract login from userinfo endpoint: %v", err)
 	}
 	s.Email = login
 	s.PreferredUsername = login
 
 	id, err := json.Get("id").String()
 	if err != nil {
-		return fmt.Errorf("unable to extract email from userinfo endpoint: %v", err)
+		return fmt.Errorf("unable to extract id from userinfo endpoint: %v", err)
 	}
 	s.User = id
 
-	logger.Errorf("Session info %v", s)
-
+	email, err := json.Get("default_email").String()
+	if err != nil {
+		logger.Printf("unable to get email from userinfo endpoint: %v", err)
+	} else {
+		s.Email = email
+	}
 	return nil
 }
 
