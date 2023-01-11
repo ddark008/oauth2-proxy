@@ -144,8 +144,6 @@ func (p *YandexProvider) EnrichSession(ctx context.Context, s *sessions.SessionS
 	return nil
 }
 
-// TODO: Скопировать с google.go Redeem(), чтобы поддерживать пустой scope и refresh token, реализация по умолчанию в providers/provider_default.go
-
 // ValidateSession validates the AccessToken
 func (p *YandexProvider) ValidateSession(ctx context.Context, s *sessions.SessionState) bool {
 	return validateToken(ctx, p, s.AccessToken, makeYandexHeader(s.AccessToken))
@@ -155,9 +153,7 @@ func makeYandexHeader(accessToken string) http.Header {
 	return makeAuthorizationHeader("OAuth", accessToken, nil)
 }
 
-// GetLoginURL with typical oauth parameters
-// codeChallenge and codeChallengeMethod are the PKCE challenge and method to append to the URL params.
-// they will be empty strings if no code challenge should be presented
+// GetLoginURL with additional yandex parametes
 func (p *YandexProvider) GetLoginURL(redirectURI, state, _ string, extraParams url.Values) string {
 	if p.deviceId != "" {
 		extraParams.Add("device_id", p.deviceId)
@@ -181,4 +177,99 @@ func (p *YandexProvider) GetLoginURL(redirectURI, state, _ string, extraParams u
 		loginURL.RawQuery = q.Encode()
 	}
 	return loginURL.String()
+}
+
+// Redeem exchanges the OAuth2 authorization code for an access token
+func (p *YandexProvider) Redeem(ctx context.Context, redirectURL, code, codeVerifier string) (*sessions.SessionState, error) {
+	if code == "" {
+		return nil, ErrMissingCode
+	}
+	clientSecret, err := p.GetClientSecret()
+	if err != nil {
+		return nil, err
+	}
+
+	params := url.Values{}
+	params.Add("grant_type", "authorization_code")
+	params.Add("code", code)
+	params.Add("client_id", p.ClientID)
+	params.Add("client_secret", clientSecret)
+
+	var jsonResponse struct {
+		AccessToken  string `json:"access_token"`
+		ExpiresIn    int64  `json:"expires_in"`
+		RefreshToken string `json:"refresh_token"`
+		Scope        string `json:"scope"`
+	}
+
+	err = requests.New(p.RedeemURL.String()).
+		WithContext(ctx).
+		WithMethod("POST").
+		WithBody(bytes.NewBufferString(params.Encode())).
+		SetHeader("Content-Type", "application/x-www-form-urlencoded").
+		Do().
+		UnmarshalInto(&jsonResponse)
+	if err != nil {
+		return nil, err
+	}
+
+	session := &sessions.SessionState{
+		AccessToken:  jsonResponse.AccessToken,
+		RefreshToken: jsonResponse.RefreshToken,
+	}
+	session.CreatedAtNow()
+	session.ExpiresIn(time.Duration(jsonResponse.ExpiresIn) * time.Second)
+
+	return session, nil
+}
+
+// RefreshSession uses the RefreshToken to fetch new Access Token
+func (p *YandexProvider) RefreshSession(ctx context.Context, s *sessions.SessionState) (bool, error) {
+	if s == nil || s.RefreshToken == "" {
+		return false, nil
+	}
+
+	err := p.redeemRefreshToken(ctx, s)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (p *YandexProvider) redeemRefreshToken(ctx context.Context, s *sessions.SessionState) error {
+	clientSecret, err := p.GetClientSecret()
+	if err != nil {
+		return err
+	}
+
+	params := url.Values{}
+	params.Add("grant_type", "refresh_token")
+	params.Add("refresh_token", s.RefreshToken)
+	params.Add("client_id", p.ClientID)
+	params.Add("client_secret", clientSecret)
+
+	var jsonResponse struct {
+		AccessToken  string `json:"access_token"`
+		ExpiresIn    int64  `json:"expires_in"`
+		RefreshToken string `json:"refresh_token"`
+	}
+
+	err = requests.New(p.RedeemURL.String()).
+		WithContext(ctx).
+		WithMethod("POST").
+		WithBody(bytes.NewBufferString(params.Encode())).
+		SetHeader("Content-Type", "application/x-www-form-urlencoded").
+		Do().
+		UnmarshalInto(&jsonResponse)
+	if err != nil {
+		return err
+	}
+
+	s.AccessToken = jsonResponse.AccessToken
+	s.RefreshToken = jsonResponse.RefreshToken
+
+	s.CreatedAtNow()
+	s.ExpiresIn(time.Duration(jsonResponse.ExpiresIn) * time.Second)
+
+	return nil
 }
